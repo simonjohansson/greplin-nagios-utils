@@ -1,0 +1,39 @@
+#!/usr/bin/python
+from greplin_nagios_utils.lib.DynamicLoadRunner import DynamicLoadRunner
+from greplin_nagios_utils import settings
+from pymongo import Connection
+import datetime
+import memcache
+import pika
+import time
+import json
+
+class AngryCron(object):
+
+    def __init__(self):
+        self.db = Connection(settings.MONGODB).icinga
+        self.dlr = DynamicLoadRunner('greplin_nagios_utils.AngryCron.Scripts')
+        self.memc = memcache.Client(settings.MEMCACHED)
+    def angry_check(self):
+        for service, function in self.dlr.get_services().iteritems():
+            time.sleep(10) #Sleep 10 seconds between every check
+            try:
+                message = function(args=None)
+                message += '\nwas generated: %s' % datetime.datetime.now()
+                self.memc.set(key=service, val=message, time=3*60)
+                doc = self.db.services.find_one({'service':service})
+                if not doc:
+                    doc = {
+                        'service': service,
+                        'message': message}
+                    self.db.services.insert(doc)
+                else:
+                    self.db.services.update({'service': service},
+                        {'$set': {
+                            'message': message,
+                        }}, upsert=False)
+            except Exception, e:
+                print 'There is and error in script %s:\n%s\n\n' % (service, e)
+            
+if __name__ == '__main__':
+    AngryCron().angry_check()
