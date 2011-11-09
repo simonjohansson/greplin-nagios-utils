@@ -30,56 +30,68 @@ tornado.options.define(name="debug", default=False, help="run in debug mode", ty
 
 CHECK_CACHE = {}
 
-
+server_port = 8111
+checkscript_path = '/usr/lib/nagios/plugins/check_%s.py'
+special_checks = ['']
 
 class UpdateCheckHandler(tornado.web.RequestHandler):
-  """Removes the cached version of a check."""
+    """Removes the cached version of a check."""
 
-  def get(self, name): # pylint: disable=W0221
-    if name in CHECK_CACHE:
-      del CHECK_CACHE[name]
+    def get(self, name): # pylint: disable=W0221
+        if name in CHECK_CACHE:
+            del CHECK_CACHE[name]
 
 
 
 class CheckHandler(tornado.web.RequestHandler):
-  """Handles running a check."""
+    """Handles running a check."""
 
-  def get(self, name): # pylint: disable=W0221
-    if name not in CHECK_CACHE:
-      filename = '/usr/lib/nagios/plugins/check_%s.py' % name
-      if os.path.exists(filename):
-        CHECK_CACHE[name] = imp.load_source('check_%s' % name, filename)
-      else:
-        raise Exception('No such file: %s' % filename)
+    def do_something_special(name):
+        pass
 
-    try:
-      sys.stdout = self
-      sys.stderr = self
+    def get(self, name): # pylint: disable=W0221
+        special_check = False
+        for check in special_checks:
+            if check in name:
+                special_check = True    
 
-      args = self.get_arguments('arg')
-      args.insert(0, 'check_%s' % name)
+        if name not in CHECK_CACHE and not special_check:
+            filename = checkscript_path % name
+            if os.path.exists(filename):
+                CHECK_CACHE[name] = imp.load_source('check_%s' % name, filename)
+            else:
+                raise Exception('No such file: %s' % filename)
 
-      CHECK_CACHE[name].check(args)
-    except SystemExit:
-      pass
-    finally:
-      sys.stdout = sys.__stdout__
-      sys.stderr = sys.__stderr__
+        try:
+            sys.stdout = self
+            sys.stderr = self
+            if special_check:
+                do_something_special(name)
+            else:
+                args = self.get_arguments('arg')
+                args.insert(0, 'check_%s' % name)
+                CHECK_CACHE[name].check(args)
+        except SystemExit:
+            pass
+        
+        finally:
+            sys.stdout = sys.__stdout__
+            sys.stderr = sys.__stderr__
 
 
 def main():
-  """Starts the web server."""
-  tornado.options.parse_command_line()
+    """Starts the web server."""
+    tornado.options.parse_command_line()
 
-  application = tornado.web.Application([
-    (r"/check/(.+)", CheckHandler),
-    (r"/update/(.+)", UpdateCheckHandler),
-  ], debug = tornado.options.options.debug)
+    application = tornado.web.Application([
+        (r"/check/(.+)", CheckHandler),
+        (r"/update/(.+)", UpdateCheckHandler),
+    ], debug = tornado.options.options.debug)
 
-  httpServer = tornado.httpserver.HTTPServer(application)
-  httpServer.listen(8111)
+    httpServer = tornado.httpserver.HTTPServer(application)
+    httpServer.listen(server_port)
 
-  tornado.ioloop.IOLoop.instance().start()
+    tornado.ioloop.IOLoop.instance().start()
 
 
 if __name__ == "__main__":
