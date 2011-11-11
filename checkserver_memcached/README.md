@@ -5,9 +5,11 @@ Simple server that checks status of memcached messages from services
 --------------------------------------------------------------
 
 ### Dependencies
+
 [Tornado](/facebook/tornado)
 
 ### Usage
+
 Checkserver checks memached for data in the form of a JSONified string ala:
     {'state':'OK: The service is working ok', 'timestamp':11123123}
 The key for memcached should be the same as the argument that gets passed to memcached_check.sh. If you do YOUR_NAGIOS_COMMAND!important_service) the checkserver is going to look after the key 'important_server'    
