@@ -42,7 +42,7 @@ class CheckHandler(tornado.web.RequestHandler):
     """Handles running a check."""
 
     def get(self, name):
-        if name not in CHECK_CACHE and not special_check:
+        if name not in CHECK_CACHE:
             filename = settings.CHECKSCRIPT_PATH % name
             if os.path.exists(filename):
                 CHECK_CACHE[name] = imp.load_source('check_%s' % name, filename)
