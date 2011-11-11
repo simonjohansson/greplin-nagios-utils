@@ -20,8 +20,6 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.options
 import tornado.web
-import memcache
-import pymongo
 import imp
 import os
 import sys
@@ -29,13 +27,7 @@ import sys
 
 tornado.options.define(name="debug", default=False, help="run in debug mode", type=bool)
 
-
 CHECK_CACHE = {}
-db = pymongo.Connection(settings.MONGODB).icinga
-memc = memcache.Client(settings.MEMCACHE)
-server_port = 8111
-checkscript_path = '/usr/lib/nagios/plugins/check_%s.py'
-special_checks = ['queryd']
 
 class UpdateCheckHandler(tornado.web.RequestHandler):
     """Removes the cached version of a check."""
@@ -49,30 +41,9 @@ class UpdateCheckHandler(tornado.web.RequestHandler):
 class CheckHandler(tornado.web.RequestHandler):
     """Handles running a check."""
 
-    def get_from_memcached(self, name):
-        check = memc.get(name.encode('iso-8859-1'))
-        if check:
-            print check
-        else:
-            data = db.services.find_one({'service':name})
-            message = data.get('message')
-            print "CRIT: The data is old! Last data:\n%s" % message
-
     def get(self, name):
-        """
-        The special_check is because sometimes we want to test stuff that might block the server, QUERYD for instance.
-        Thants not good because in the end all services that gets tested trough checkserver might turn out UNKNOWN in icinga.
-        For this purpose ive added functionality to read data from memcahe and mongodb. Neat.
-        If the check has 'substring' in its name and is specified in the special_checks list then they are treated as special
-        checks.
-        """
-        special_check = False
-        for check in special_checks:
-            if check in name:
-                special_check = True    
-
         if name not in CHECK_CACHE and not special_check:
-            filename = checkscript_path % name
+            filename = settings.CHECKSCRIPT_PATH % name
             if os.path.exists(filename):
                 CHECK_CACHE[name] = imp.load_source('check_%s' % name, filename)
             else:
@@ -81,12 +52,10 @@ class CheckHandler(tornado.web.RequestHandler):
         try:
             sys.stdout = self
             sys.stderr = self
-            if special_check:
-                self.get_from_memcached(name)
-            else:
-                args = self.get_arguments('arg')
-                args.insert(0, 'check_%s' % name)
-                CHECK_CACHE[name].check(args)
+            
+            args = self.get_arguments('arg')
+            args.insert(0, 'check_%s' % name)
+            CHECK_CACHE[name].check(args)
         except SystemExit:
             pass
         
@@ -105,7 +74,7 @@ def main():
     ], debug = tornado.options.options.debug)
 
     httpServer = tornado.httpserver.HTTPServer(application)
-    httpServer.listen(server_port)
+    httpServer.listen(settings.CHECKSERVER_PORT)
 
     tornado.ioloop.IOLoop.instance().start()
 
