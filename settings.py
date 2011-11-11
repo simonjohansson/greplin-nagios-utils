@@ -1,2 +1,2 @@
-MONGODB = 'mongoserver'
-MEMCACHE = ['memcacheip:memcacheport']
+MEMCACHE = ['127.0.0.1:11211']
+CHECKSERVER_MEMCACHE_PORT = 8112
