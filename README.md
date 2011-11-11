@@ -1,3 +1,6 @@
+Forked from greplin-nagios-utils
+Ive added a server for loading checks from memcached.
+
 greplin-nagios-utils
 ====================
 
