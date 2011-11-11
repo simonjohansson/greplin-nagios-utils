@@ -20,7 +20,7 @@ If you do YOUR_NAGIOS_COMMAND!important_service) the checkserver is going to loo
 
 Using checkserver is simple, run an instance of the server, and then add a nagios command(commands.cfg)
 
-(Note that this is looking in the default folder for scripts, you can also specify absolute path)
+	#Note that this is looking in the default folder for scripts, you can also specify absolute path
 	define command {
 	    command_name    memcached_check
 	    command_line    $USER1$/memcacade_check.sh $ARG1$
